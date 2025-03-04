@@ -3,44 +3,54 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-def plot_satellite_path(path, targets, captured_targets):
+def plot_multiple_satellites(sat_data_list, targets):
     """
-    Plots the satellite path, all targets, and captured targets on a world map using Cartopy.
+    Plots multiple satellites' ground tracks along with their swath edges on a world map.
     
     Args:
-        path (List[dict]): Satellite path with keys 'lat' and 'lon'.
-        targets (List[tuple]): List of target coordinates.
-        captured_targets (List[dict]): Captured targets with 'target' key.
+        sat_data_list (List[dict]): Each dict should contain:
+            - 'name': Satellite name
+            - 'path': List of dicts with 'lat' and 'lon'
+            - 'left_edge': List of dicts with 'lat' and 'lon'
+            - 'right_edge': List of dicts with 'lat' and 'lon'
+            - 'captured': List of capture events (each a dict)
+        targets (List[tuple]): List of target coordinates (lat, lon)
     
     Returns:
         matplotlib.figure.Figure: The generated plot.
     """
-    # Create a figure with the PlateCarree projection (suitable for world maps)
     fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
     
-    # Add map features: coastlines, borders, land, and ocean colors
     ax.set_global()
     ax.coastlines()
     ax.add_feature(cfeature.BORDERS, linestyle=':')
     ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
     
-    # Plot the satellite path
-    lats = [point['lat'] for point in path]
-    lons = [point['lon'] for point in path]
-    ax.plot(lons, lats, label='Satellite Path', color='blue', transform=ccrs.Geodetic())
+    colors = ['blue', 'green', 'purple', 'brown', 'cyan', 'magenta']
     
-    # Plot all targets
+    for i, sat in enumerate(sat_data_list):
+        color = colors[i % len(colors)]
+        # Plot center path
+        lats = [p['lat'] for p in sat['path']]
+        lons = [p['lon'] for p in sat['path']]
+        ax.plot(lons, lats, label=f"{sat['name']} Path", color=color, transform=ccrs.Geodetic())
+        
+        # Plot left edge
+        lats_left = [p['lat'] for p in sat['left_edge']]
+        lons_left = [p['lon'] for p in sat['left_edge']]
+        ax.plot(lons_left, lats_left, label=f"{sat['name']} Left Edge", color=color, linestyle='--', transform=ccrs.Geodetic())
+        
+        # Plot right edge
+        lats_right = [p['lat'] for p in sat['right_edge']]
+        lons_right = [p['lon'] for p in sat['right_edge']]
+        ax.plot(lons_right, lats_right, label=f"{sat['name']} Right Edge", color=color, linestyle='-.', transform=ccrs.Geodetic())
+    
+    # Plot all targets as black circles
     t_lats = [t[0] for t in targets]
     t_lons = [t[1] for t in targets]
-    ax.scatter(t_lons, t_lats, label='Targets', color='green', marker='o', transform=ccrs.Geodetic())
+    ax.scatter(t_lons, t_lats, label='Targets', color='black', marker='o', transform=ccrs.Geodetic())
     
-    # Plot captured targets if any
-    if captured_targets:
-        c_lats = [ct['target'][0] for ct in captured_targets]
-        c_lons = [ct['target'][1] for ct in captured_targets]
-        ax.scatter(c_lons, c_lats, label='Captured Targets', color='gold', marker='*', s=150, transform=ccrs.Geodetic())
-    
-    ax.set_title('Satellite Ground Track and Target Capture')
+    ax.set_title('Satellite Ground Tracks with Swath Edges and Target Capture')
     ax.legend()
     return fig
