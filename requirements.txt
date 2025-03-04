@@ -1,0 +1,6 @@
+streamlit
+skyfield
+numpy
+geopy
+matplotlib
+cartopy

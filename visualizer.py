@@ -31,26 +31,27 @@ def plot_multiple_satellites(sat_data_list, targets):
     
     for i, sat in enumerate(sat_data_list):
         color = colors[i % len(colors)]
-        # Plot center path
+        # Plot center path (this will be added to the legend)
         lats = [p['lat'] for p in sat['path']]
         lons = [p['lon'] for p in sat['path']]
         ax.plot(lons, lats, label=f"{sat['name']} Path", color=color, transform=ccrs.Geodetic())
         
-        # Plot left edge
+        # Plot left edge without adding to the legend
         lats_left = [p['lat'] for p in sat['left_edge']]
         lons_left = [p['lon'] for p in sat['left_edge']]
-        ax.plot(lons_left, lats_left, label=f"{sat['name']} Left Edge", color=color, linestyle='--', transform=ccrs.Geodetic())
+        ax.plot(lons_left, lats_left, color=color, linestyle='--', transform=ccrs.Geodetic())
         
-        # Plot right edge
+        # Plot right edge without adding to the legend
         lats_right = [p['lat'] for p in sat['right_edge']]
         lons_right = [p['lon'] for p in sat['right_edge']]
-        ax.plot(lons_right, lats_right, label=f"{sat['name']} Right Edge", color=color, linestyle='-.', transform=ccrs.Geodetic())
+        ax.plot(lons_right, lats_right, color=color, linestyle='-.', transform=ccrs.Geodetic())
     
-    # Plot all targets as black circles
+    # Plot all targets as black circles, add to legend
     t_lats = [t[0] for t in targets]
     t_lons = [t[1] for t in targets]
     ax.scatter(t_lons, t_lats, label='Targets', color='black', marker='o', transform=ccrs.Geodetic())
     
     ax.set_title('Satellite Ground Tracks with Swath Edges and Target Capture')
-    ax.legend()
+    # Place the legend on the right outside the plot area
+    ax.legend(loc='center left', bbox_to_anchor=(1.05, 0.5))
     return fig
