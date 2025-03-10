@@ -19,7 +19,7 @@ try:
     st.write("Available attributes in streamlit_geolocation:", dir(st_geo))
 except Exception as e:
     st.error("❌ Failed to import streamlit_geolocation: " + str(e))
-    st.stop()  # Stop if geolocation module is not available
+    st.stop()  # Stop if the module cannot be imported
 
 # ------------------------------------------------
 # Application Title & Description
@@ -105,7 +105,7 @@ if st.session_state.satellites:
     if st.sidebar.button("Clear Satellites", key="clear_satellites"):
         st.session_state.satellites = []
 
-# If no satellites are added manually or via loader, load default satellites
+# If no satellites are added manually or via loader, load default satellites (old + new defaults)
 if not st.session_state.satellites:
     st.session_state.satellites.extend([
         {"name": "NUSAT-49 (K.VON NEUMANN)", "tle1": default_tle1_49, "tle2": default_tle2_49},
@@ -152,12 +152,17 @@ if geolocation_function:
         try:
             coords = geolocation_function()
             if coords:
-                st.sidebar.write("Your Location:")
-                st.sidebar.write(f"Latitude: {coords.get('latitude', 'N/A'):.4f}")
-                st.sidebar.write(f"Longitude: {coords.get('longitude', 'N/A'):.4f}")
-                if st.sidebar.button("Add My Location to Targets", key="add_location"):
-                    st.session_state.custom_targets.append((coords.get("latitude"), coords.get("longitude")))
-                    st.sidebar.success("Location added to targets!")
+                lat = coords.get("latitude")
+                lon = coords.get("longitude")
+                if lat is not None and lon is not None:
+                    st.sidebar.write("Your Location:")
+                    st.sidebar.write(f"Latitude: {lat:.4f}")
+                    st.sidebar.write(f"Longitude: {lon:.4f}")
+                    if st.sidebar.button("Add My Location to Targets", key="add_location"):
+                        st.session_state.custom_targets.append((lat, lon))
+                        st.sidebar.success("Location added to targets!")
+                else:
+                    st.sidebar.warning("Coordinates returned are None. Check browser permissions.")
             else:
                 st.sidebar.warning("No coordinates returned. Check your browser permissions or HTTPS requirements.")
         except Exception as e:
