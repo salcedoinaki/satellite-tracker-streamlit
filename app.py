@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide")  # Use a wide layout
 
 import importlib
 import requests
@@ -19,7 +19,7 @@ try:
     st.write("Available attributes in streamlit_geolocation:", dir(st_geo))
 except Exception as e:
     st.error("❌ Failed to import streamlit_geolocation: " + str(e))
-    st.stop()  # Stop execution if the module cannot be imported
+    st.stop()  # Stop if geolocation module is not available
 
 # ------------------------------------------------
 # Application Title & Description
@@ -105,7 +105,7 @@ if st.session_state.satellites:
     if st.sidebar.button("Clear Satellites", key="clear_satellites"):
         st.session_state.satellites = []
 
-# If no satellites are added manually or via loader, load default satellites (old + new defaults)
+# If no satellites are added manually or via loader, load default satellites
 if not st.session_state.satellites:
     st.session_state.satellites.extend([
         {"name": "NUSAT-49 (K.VON NEUMANN)", "tle1": default_tle1_49, "tle2": default_tle2_49},
@@ -135,31 +135,33 @@ if st.sidebar.button("Add Target", key="add_target"):
     st.sidebar.success(f"Added target: ({target_lat}, {target_lon})")
 
 # ------------------------------------------------
-# Sidebar: Geolocation Section
+# Sidebar: Geolocation Section using streamlit_geolocation
 # ------------------------------------------------
 st.sidebar.header("Get My Location (via Browser)")
 
-# Try to use available geolocation function
-geolocation_function = None
-if hasattr(st_geo, 'st_geolocation'):
-    geolocation_function = st_geo.st_geolocation
-elif hasattr(st_geo, 'geolocation'):
-    geolocation_function = st_geo.geolocation
+# Use the attribute "streamlit_geolocation" from st_geo (based on your debug output)
+if hasattr(st_geo, "streamlit_geolocation"):
+    geolocation_function = st_geo.streamlit_geolocation
+    st.sidebar.write("Using function: streamlit_geolocation")
 else:
+    geolocation_function = None
     st.sidebar.error("No geolocation function found in streamlit_geolocation module.")
 
 if geolocation_function:
     if st.sidebar.button("Get My Location", key="get_my_location"):
         try:
             coords = geolocation_function()
-            st.sidebar.write("Your Location:")
-            st.sidebar.write(f"Latitude: {coords.get('latitude', 'N/A'):.4f}")
-            st.sidebar.write(f"Longitude: {coords.get('longitude', 'N/A'):.4f}")
-            if st.sidebar.button("Add My Location to Targets", key="add_location"):
-                st.session_state.custom_targets.append((coords.get("latitude"), coords.get("longitude")))
-                st.sidebar.success("Location added to targets!")
+            if coords:
+                st.sidebar.write("Your Location:")
+                st.sidebar.write(f"Latitude: {coords.get('latitude', 'N/A'):.4f}")
+                st.sidebar.write(f"Longitude: {coords.get('longitude', 'N/A'):.4f}")
+                if st.sidebar.button("Add My Location to Targets", key="add_location"):
+                    st.session_state.custom_targets.append((coords.get("latitude"), coords.get("longitude")))
+                    st.sidebar.success("Location added to targets!")
+            else:
+                st.sidebar.warning("No coordinates returned. Check your browser permissions or HTTPS requirements.")
         except Exception as e:
-            st.sidebar.error("Error using geolocation function: " + str(e))
+            st.sidebar.error("Error using streamlit_geolocation: " + str(e))
 
 if st.session_state.custom_targets:
     st.sidebar.markdown("### Custom Targets:")
