@@ -4,4 +4,4 @@ numpy
 geopy
 matplotlib
 cartopy
-streamlit-geolocation
+streamlit-geolocation==0.0.3
