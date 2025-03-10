@@ -11,15 +11,13 @@ from visualizer import plot_multiple_satellites
 from target_list import TARGETS as DEFAULT_TARGETS
 
 # ------------------------------------------------
-# Debug/Import Section for streamlit-geolocation
+# Import streamlit-geolocation using importlib
 # ------------------------------------------------
 try:
     st_geo = importlib.import_module("streamlit_geolocation")
-    st.write("✅ streamlit_geolocation imported successfully!")
-    st.write("Available attributes in streamlit_geolocation:", dir(st_geo))
 except Exception as e:
-    st.error("❌ Failed to import streamlit_geolocation: " + str(e))
-    st.stop()  # Stop if the module cannot be imported
+    st.error("Failed to import streamlit_geolocation: " + str(e))
+    st.stop()
 
 # ------------------------------------------------
 # Application Title & Description
@@ -43,6 +41,8 @@ if "simulation_run" not in st.session_state:
     st.session_state.simulation_run = False
 if "sidebar_hidden" not in st.session_state:
     st.session_state.sidebar_hidden = False
+if "my_location" not in st.session_state:
+    st.session_state.my_location = None
 
 # ------------------------------------------------
 # Sidebar: Satellite Inputs & TLE Loader
@@ -105,7 +105,7 @@ if st.session_state.satellites:
     if st.sidebar.button("Clear Satellites", key="clear_satellites"):
         st.session_state.satellites = []
 
-# If no satellites are added manually or via loader, load default satellites (old + new defaults)
+# If no satellites are added manually or via loader, load default satellites
 if not st.session_state.satellites:
     st.session_state.satellites.extend([
         {"name": "NUSAT-49 (K.VON NEUMANN)", "tle1": default_tle1_49, "tle2": default_tle2_49},
@@ -135,38 +135,40 @@ if st.sidebar.button("Add Target", key="add_target"):
     st.sidebar.success(f"Added target: ({target_lat}, {target_lon})")
 
 # ------------------------------------------------
-# Sidebar: Geolocation Section using streamlit_geolocation
+# Sidebar: Geolocation Section (Auto Request Location)
 # ------------------------------------------------
 st.sidebar.header("Get My Location (via Browser)")
 
-# Use the attribute "streamlit_geolocation" from st_geo (based on your debug output)
+# Use the attribute "streamlit_geolocation" from st_geo (based on debug output)
 if hasattr(st_geo, "streamlit_geolocation"):
     geolocation_function = st_geo.streamlit_geolocation
-    st.sidebar.write("Using function: streamlit_geolocation")
 else:
     geolocation_function = None
     st.sidebar.error("No geolocation function found in streamlit_geolocation module.")
 
-if geolocation_function:
-    if st.sidebar.button("Get My Location", key="get_my_location"):
-        try:
-            coords = geolocation_function()
-            if coords:
-                lat = coords.get("latitude")
-                lon = coords.get("longitude")
-                if lat is not None and lon is not None:
-                    st.sidebar.write("Your Location:")
-                    st.sidebar.write(f"Latitude: {lat:.4f}")
-                    st.sidebar.write(f"Longitude: {lon:.4f}")
-                    if st.sidebar.button("Add My Location to Targets", key="add_location"):
-                        st.session_state.custom_targets.append((lat, lon))
-                        st.sidebar.success("Location added to targets!")
-                else:
-                    st.sidebar.warning("Coordinates returned are None. Check browser permissions.")
-            else:
-                st.sidebar.warning("No coordinates returned. Check your browser permissions or HTTPS requirements.")
-        except Exception as e:
-            st.sidebar.error("Error using streamlit_geolocation: " + str(e))
+# Automatically request location if not already obtained
+if geolocation_function and st.session_state.my_location is None:
+    try:
+        coords = geolocation_function()
+        st.session_state.my_location = coords
+    except Exception as e:
+        st.session_state.my_location = None
+
+if st.session_state.my_location:
+    coords = st.session_state.my_location
+    lat = coords.get("latitude")
+    lon = coords.get("longitude")
+    if lat is not None and lon is not None:
+        st.sidebar.write("Your Location:")
+        st.sidebar.write(f"Latitude: {lat:.4f}")
+        st.sidebar.write(f"Longitude: {lon:.4f}")
+        if st.sidebar.button("Add My Location to Targets", key="add_location"):
+            st.session_state.custom_targets.append((lat, lon))
+            st.sidebar.success("Location added to targets!")
+    else:
+        st.sidebar.warning("Location data is not available. Check browser permissions.")
+else:
+    st.sidebar.warning("Location not available.")
 
 if st.session_state.custom_targets:
     st.sidebar.markdown("### Custom Targets:")
