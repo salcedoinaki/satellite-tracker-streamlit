@@ -5,4 +5,4 @@ geopy
 matplotlib
 cartopy
 streamlit-geolocation==0.0.10
-
+requests

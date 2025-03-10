@@ -1,50 +1,29 @@
 import streamlit as st
-st.set_page_config(layout="wide")  # Use a wide layout
+st.set_page_config(layout="wide")
 
+import importlib
 import requests
+
+# Import other dependencies
 from satellite import get_satellite_path_with_edges
 from scheduler import greedy_schedule
 from visualizer import plot_multiple_satellites
 from target_list import TARGETS as DEFAULT_TARGETS
 
-# Try to import the geolocation component. If not available, show an error.
+# ------------------------------------------------
+# Debug/Import Section for streamlit-geolocation
+# ------------------------------------------------
 try:
-    from streamlit_geolocation import st_geolocation
-except ImportError:
-    st.error("Please install streamlit-geolocation (pip install streamlit-geolocation) to use geolocation features.")
+    # Use importlib to import streamlit-geolocation
+    st_geo = importlib.import_module("streamlit_geolocation")
+    st.write("✅ streamlit_geolocation imported successfully using importlib!")
+except Exception as e:
+    st.error("❌ Failed to import streamlit_geolocation: " + str(e))
+    st.stop()  # Stop execution if the module cannot be imported
 
-# -------------------------------
-# Helper Function: Fetch TLE Data from a URL
-# -------------------------------
-def fetch_tle_from_url(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        lines = response.text.strip().splitlines()
-        satellites = []
-        # Assume TLE file is organized in groups of 3 lines: name, TLE line 1, TLE line 2
-        for i in range(0, len(lines), 3):
-            if i + 2 < len(lines):
-                name = lines[i].strip()
-                tle1 = lines[i+1].strip()
-                tle2 = lines[i+2].strip()
-                satellites.append({"name": name, "tle1": tle1, "tle2": tle2})
-        return satellites
-    else:
-        return []
-
-# -------------------------------
-# TLE Source Dictionary for Automated Loading
-# -------------------------------
-TLE_SOURCES = {
-    "Planet Labs": "https://celestrak.com/NORAD/elements/planet-labs-doves.txt",
-    "Maxar": "https://celestrak.com/NORAD/elements/maxar.txt",   # placeholder URL
-    "Spire": "https://celestrak.com/NORAD/elements/spire.txt",     # placeholder URL
-    "BlackSky": "https://celestrak.com/NORAD/elements/blacksky.txt"  # placeholder URL
-}
-
-# -------------------------------
-# Title & Description
-# -------------------------------
+# ------------------------------------------------
+# Application Title & Description
+# ------------------------------------------------
 st.title("Optimus2: Satellite Mission Planner")
 st.markdown(
     """
@@ -53,9 +32,9 @@ and determines which ground targets are captured during their passes.
     """
 )
 
-# -------------------------------
+# ------------------------------------------------
 # Initialize Session State Variables
-# -------------------------------
+# ------------------------------------------------
 if "satellites" not in st.session_state:
     st.session_state.satellites = []
 if "custom_targets" not in st.session_state:
@@ -65,12 +44,12 @@ if "simulation_run" not in st.session_state:
 if "sidebar_hidden" not in st.session_state:
     st.session_state.sidebar_hidden = False
 
-# -------------------------------
-# Sidebar: Satellite Inputs
-# -------------------------------
+# ------------------------------------------------
+# Sidebar: Satellite Inputs & TLE Loader
+# ------------------------------------------------
 st.sidebar.header("Satellite Inputs")
 
-# Manual Satellite Addition (defaulting to an example satellite)
+# --- Manual Satellite Addition ---
 default_name_49 = "NUSAT-49 (K.VON NEUMANN)"
 default_tle1_49 = "1 60500U 24149AJ  25062.80085819  .00012619  00000-0  51125-3 0  9991"
 default_tle2_49 = "2 60500  97.4170 141.8271 0005273 137.7873 222.3772 15.24786286 30252"
@@ -86,10 +65,31 @@ if st.sidebar.button("Add Satellite", key="add_satellite"):
     })
     st.sidebar.success(f"Added satellite: {sat_name_input}")
 
-# Automated TLE Loader Section
+# --- Automated TLE Loader Section ---
 st.sidebar.header("Automated TLE Loader")
+TLE_SOURCES = {
+    "Planet Labs": "https://celestrak.com/NORAD/elements/planet-labs-doves.txt",
+    "Maxar": "https://celestrak.com/NORAD/elements/maxar.txt",   # placeholder URL
+    "Spire": "https://celestrak.com/NORAD/elements/spire.txt",     # placeholder URL
+    "BlackSky": "https://celestrak.com/NORAD/elements/blacksky.txt"  # placeholder URL
+}
 selected_constellation = st.sidebar.selectbox("Select Constellation", list(TLE_SOURCES.keys()), key="constellation_select")
 if st.sidebar.button("Load TLEs for " + selected_constellation, key="load_tle"):
+    def fetch_tle_from_url(url):
+        response = requests.get(url)
+        if response.status_code == 200:
+            lines = response.text.strip().splitlines()
+            satellites = []
+            # TLE file in groups of 3 lines: name, TLE line 1, TLE line 2
+            for i in range(0, len(lines), 3):
+                if i + 2 < len(lines):
+                    name = lines[i].strip()
+                    tle1 = lines[i+1].strip()
+                    tle2 = lines[i+2].strip()
+                    satellites.append({"name": name, "tle1": tle1, "tle2": tle2})
+            return satellites
+        else:
+            return []
     fetched_satellites = fetch_tle_from_url(TLE_SOURCES[selected_constellation])
     if fetched_satellites:
         st.session_state.satellites.extend(fetched_satellites)
@@ -97,7 +97,7 @@ if st.sidebar.button("Load TLEs for " + selected_constellation, key="load_tle"):
     else:
         st.sidebar.error("Failed to load TLEs for " + selected_constellation)
 
-# Display current satellites and a button to clear them
+# --- Display Current Satellites ---
 if st.session_state.satellites:
     st.sidebar.markdown("### Added Satellites:")
     for idx, sat in enumerate(st.session_state.satellites, start=1):
@@ -105,7 +105,7 @@ if st.session_state.satellites:
     if st.sidebar.button("Clear Satellites", key="clear_satellites"):
         st.session_state.satellites = []
 
-# If no satellites are added manually or via loader, load default satellites (old + new defaults)
+# If no satellites have been added manually or via loader, load a default set:
 if not st.session_state.satellites:
     st.session_state.satellites.extend([
         {"name": "NUSAT-49 (K.VON NEUMANN)", "tle1": default_tle1_49, "tle2": default_tle2_49},
@@ -116,17 +116,17 @@ if not st.session_state.satellites:
         {"name": "NUSAT-29 (EDITH CLARKE)", "tle1": "1 52764U 22057AJ  25063.25002839  .00046176  00000-0  97283-3 0  9991", "tle2": "2 52764  97.4726 191.4589 0006861 191.1837 168.9261 15.45099026154632"}
     ])
 
-# -------------------------------
+# ------------------------------------------------
 # Sidebar: Simulation Parameters
-# -------------------------------
+# ------------------------------------------------
 st.sidebar.header("Simulation Parameters")
 duration_minutes = st.sidebar.number_input("Duration (minutes)", min_value=10, max_value=240, value=240, step=10, key="duration")
 step_seconds = st.sidebar.number_input("Time Step (seconds)", min_value=10, max_value=600, value=60, step=10, key="step_seconds")
 swath_radius_km = st.sidebar.number_input("Swath Radius (km)", min_value=10, max_value=200, value=75, step=5, key="swath_radius")
 
-# -------------------------------
-# Sidebar: Custom Target Input
-# -------------------------------
+# ------------------------------------------------
+# Sidebar: Custom Target Input & Geolocation
+# ------------------------------------------------
 st.sidebar.header("Custom Target Input")
 target_lat = st.sidebar.number_input("Target Latitude", value=0.0, format="%.4f", key="target_lat")
 target_lon = st.sidebar.number_input("Target Longitude", value=0.0, format="%.4f", key="target_lon")
@@ -134,19 +134,23 @@ if st.sidebar.button("Add Target", key="add_target"):
     st.session_state.custom_targets.append((target_lat, target_lon))
     st.sidebar.success(f"Added target: ({target_lat}, {target_lon})")
 
-# --- Geolocation Section ---
-st.sidebar.header("Get My Location")
-if "st_geolocation" in globals():
-    coords = st_geolocation()
-    if coords:
-        st.sidebar.write("Your location:")
-        st.sidebar.write(f"Latitude: {coords['latitude']:.4f}")
-        st.sidebar.write(f"Longitude: {coords['longitude']:.4f}")
-        if st.sidebar.button("Add My Location to Targets", key="add_location"):
-            st.session_state.custom_targets.append((coords["latitude"], coords["longitude"]))
-            st.sidebar.success("Location added to targets!")
-else:
-    st.sidebar.warning("Geolocation not available.")
+# --- Geolocation Section using st_geo from importlib ---
+st.sidebar.header("Get My Location (via Browser)")
+if st.sidebar.button("Get My Location", key="get_my_location"):
+    try:
+        # Call the st_geolocation function from the imported module
+        coords = st_geo.st_geolocation()
+        if coords:
+            st.sidebar.write("Your Location:")
+            st.sidebar.write(f"Latitude: {coords.get('latitude'):.4f}")
+            st.sidebar.write(f"Longitude: {coords.get('longitude'):.4f}")
+            if st.sidebar.button("Add My Location to Targets", key="add_location"):
+                st.session_state.custom_targets.append((coords.get("latitude"), coords.get("longitude")))
+                st.sidebar.success("Location added to targets!")
+        else:
+            st.sidebar.warning("No coordinates returned. Check your browser permissions or HTTPS requirements.")
+    except Exception as e:
+        st.sidebar.error("Error using st_geolocation: " + str(e))
 
 if st.session_state.custom_targets:
     st.sidebar.markdown("### Custom Targets:")
@@ -161,16 +165,16 @@ if st.session_state.custom_targets:
 else:
     targets = DEFAULT_TARGETS
 
-# -------------------------------
+# ------------------------------------------------
 # Run Simulation Button (in Sidebar)
-# -------------------------------
+# ------------------------------------------------
 if st.sidebar.button("Run Simulation", key="run_simulation"):
     st.session_state.simulation_run = True
     st.session_state.sidebar_hidden = True
 
-# -------------------------------
+# ------------------------------------------------
 # Toggle Sidebar Visibility Buttons (Main Page)
-# -------------------------------
+# ------------------------------------------------
 if st.session_state.sidebar_hidden:
     if st.button("Show Sidebar", key="show_sidebar"):
         st.session_state.sidebar_hidden = False
@@ -186,7 +190,6 @@ else:
         except Exception:
             st.warning("Please refresh the page manually to hide the sidebar.")
 
-# Inject CSS to hide the sidebar if sidebar_hidden is True
 if st.session_state.sidebar_hidden:
     hide_sidebar_style = """
     <style>
@@ -197,9 +200,9 @@ if st.session_state.sidebar_hidden:
     """
     st.markdown(hide_sidebar_style, unsafe_allow_html=True)
 
-# -------------------------------
+# ------------------------------------------------
 # Run Simulation and Display Output
-# -------------------------------
+# ------------------------------------------------
 if st.session_state.get("simulation_run", False):
     st.write("Running simulation...")
     sat_data_list = []
@@ -226,10 +229,8 @@ if st.session_state.get("simulation_run", False):
                 "right_edge": right_edge,
                 "captured": captured
             })
-            
         fig = plot_multiple_satellites(sat_data_list, targets)
         st.pyplot(fig)
-        
         st.write("### Captured Targets:")
         for info in captured_info:
             st.write(f"**{info['name']}**:")
