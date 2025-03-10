@@ -7,6 +7,12 @@ from scheduler import greedy_schedule
 from visualizer import plot_multiple_satellites
 from target_list import TARGETS as DEFAULT_TARGETS
 
+# Try to import the geolocation component. If not available, show an error.
+try:
+    from streamlit_geolocation import st_geolocation
+except ImportError:
+    st.error("Please install streamlit-geolocation (pip install streamlit-geolocation) to use geolocation features.")
+
 # -------------------------------
 # Helper Function: Fetch TLE Data from a URL
 # -------------------------------
@@ -127,6 +133,20 @@ target_lon = st.sidebar.number_input("Target Longitude", value=0.0, format="%.4f
 if st.sidebar.button("Add Target", key="add_target"):
     st.session_state.custom_targets.append((target_lat, target_lon))
     st.sidebar.success(f"Added target: ({target_lat}, {target_lon})")
+
+# --- Geolocation Section ---
+st.sidebar.header("Get My Location")
+if "st_geolocation" in globals():
+    coords = st_geolocation()
+    if coords:
+        st.sidebar.write("Your location:")
+        st.sidebar.write(f"Latitude: {coords['latitude']:.4f}")
+        st.sidebar.write(f"Longitude: {coords['longitude']:.4f}")
+        if st.sidebar.button("Add My Location to Targets", key="add_location"):
+            st.session_state.custom_targets.append((coords["latitude"], coords["longitude"]))
+            st.sidebar.success("Location added to targets!")
+else:
+    st.sidebar.warning("Geolocation not available.")
 
 if st.session_state.custom_targets:
     st.sidebar.markdown("### Custom Targets:")
